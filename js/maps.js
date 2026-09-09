@@ -7,6 +7,7 @@ const Maps = {
   miniMap: null,
   fullMap: null,
   radarMap: null,
+  lightningFrame: null,
   currentLayer: 'temp',
   weatherLayers: {},
   radarLayer: null,
@@ -264,6 +265,18 @@ const Maps = {
         if (slider) { slider.max = this.radarFrames.length - 1; slider.value = this.radarIndex; }
       }, 800);
     }
+  },
+
+  // ---- LIGHTNING MAP ----
+  initLightningMap() {
+    const frame = document.getElementById('lightningFrame');
+    if (!frame) return;
+
+    if (!frame.src || frame.src === 'about:blank') {
+      frame.src = 'https://www.lightningmaps.org/?lang=sl';
+    }
+
+    this.lightningFrame = frame;
   },
 
   updateLocation(lat, lon, city, weatherData) {
