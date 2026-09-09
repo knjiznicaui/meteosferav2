@@ -222,17 +222,6 @@ Odpri **Nastavitve** v aplikaciji:
 
 Ključi se shranijo lokalno v `localStorage`.
 
-
-Vsi trije imajo brezplačen paket in API ključ lahko dobiš z registracijo. Vendar imajo brezplačni paketi omejitve:
-
-API	Brezplačno.. Ključ dobiš z registracijo..	Glavna omejitev
-
-OpenWeatherMap	✅ Da	✅ Da	60 zahtev/min, 1.000.000/mesec
-
-Tomorrow.io	✅ Da	✅ Da	500 zahtev/dan, 25/uro
-
-AirVisual / IQAir	✅ Da	✅ Da	5 zahtev/min, 500/dan, 10.000/mesec
-
 ---
 
 ## 🌡️ Podprte Meritve
@@ -290,7 +279,7 @@ AirVisual / IQAir	✅ Da	✅ Da	5 zahtev/min, 500/dan, 10.000/mesec
 
 ## 📄 Licenca
 
-SIMAT © 2026 — Prosto za osebno in komercialno uporabo.
+MIT © 2024 — Prosto za osebno in komercialno uporabo.
 
 ---
 

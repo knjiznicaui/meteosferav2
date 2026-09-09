@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="sl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Meteosfera — Napredna Meteorološka Aplikacija</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/main.css" />
+  <link rel="stylesheet" href="css/components.css" />
+  <link rel="stylesheet" href="css/animations.css" />
+  <!-- Leaflet za karte -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <!-- Leaflet -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- Leaflet plugins -->
+  <script src="https://unpkg.com/leaflet-velocity@2.1.2/dist/leaflet-velocity.min.js"></script>
+</head>
+<body>
+  <!-- SIDEBAR NAV -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="logo">
+        <span class="logo-icon">⛈</span>
+        <span class="logo-text">Meteosfera</span>
+      </div>
+      <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle sidebar">☰</button>
+    </div>
+    <nav class="sidebar-nav">
+      <ul>
+        <li><a href="#" class="nav-link active" data-view="dashboard"><span class="nav-icon">🏠</span><span class="nav-label">Nadzorna Plošča</span></a></li>
+        <li><a href="#" class="nav-link" data-view="forecast"><span class="nav-icon">📅</span><span class="nav-label">Napoved 14 dni</span></a></li>
+        <li><a href="#" class="nav-link" data-view="hourly"><span class="nav-icon">🕐</span><span class="nav-label">Urna Napoved</span></a></li>
+        <li><a href="#" class="nav-link" data-view="radar"><span class="nav-icon">📡</span><span class="nav-label">Radar & Satelit</span></a></li>
+        <li><a href="#" class="nav-link" data-view="map"><span class="nav-icon">🗺️</span><span class="nav-label">Vremenska Karta</span></a></li>
+        <li><a href="#" class="nav-link" data-view="climate"><span class="nav-icon">📊</span><span class="nav-label">Podnebje</span></a></li>
+        <li><a href="#" class="nav-link" data-view="alerts"><span class="nav-icon">⚠️</span><span class="nav-label">Opozorila</span></a></li>
+        <li><a href="#" class="nav-link" data-view="astronomy"><span class="nav-icon">🌙</span><span class="nav-label">Astronomija</span></a></li>
+        <li><a href="#" class="nav-link" data-view="airquality"><span class="nav-icon">💨</span><span class="nav-label">Kakovost Zraka</span></a></li>
+        <li><a href="#" class="nav-link" data-view="stations"><span class="nav-icon">🏗️</span><span class="nav-label">Postaje</span></a></li>
+        <li><a href="#" class="nav-link" data-view="compare"><span class="nav-icon">⚖️</span><span class="nav-label">Primerjava Mest</span></a></li>
+        <li><a href="#" class="nav-link" data-view="settings"><span class="nav-icon">⚙️</span><span class="nav-label">Nastavitve</span></a></li>
+      </ul>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="api-status" id="apiStatus">
+        <span class="status-dot"></span>
+        <span class="status-text">Open-Meteo API</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <main class="main-content" id="mainContent">
+    <!-- TOP BAR -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <div class="location-search">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="locationSearch" placeholder="Iskanje lokacije..." autocomplete="off" />
+          <div class="search-suggestions" id="searchSuggestions"></div>
+        </div>
+        <div class="location-current" id="currentLocationBtn" title="Moja lokacija">
+          <span>📍</span> Moja Lokacija
+        </div>
+      </div>
+      <div class="topbar-right">
+        <div class="unit-toggle">
+          <button class="unit-btn active" id="btnCelsius" onclick="setUnit('C')">°C</button>
+          <button class="unit-btn" id="btnFahrenheit" onclick="setUnit('F')">°F</button>
+        </div>
+        <div class="time-display" id="timeDisplay"></div>
+        <div class="theme-toggle" onclick="toggleTheme()" title="Preklopi temo">🌓</div>
+      </div>
+    </header>
+
+    <!-- VIEWS CONTAINER -->
+    <div class="views-container">
+      <!-- DASHBOARD VIEW -->
+      <div class="view active" id="view-dashboard">
+        <!-- HERO WEATHER CARD -->
+        <div class="hero-weather" id="heroWeather">
+          <div class="hero-main">
+            <div class="hero-left">
+              <div class="hero-location" id="heroLocation">Nalaganje...</div>
+              <div class="hero-date" id="heroDate"></div>
+              <div class="hero-temp-block">
+                <div class="hero-temp" id="heroTemp">--°</div>
+                <div class="hero-feels">Občutek <span id="heroFeels">--°</span></div>
+              </div>
+              <div class="hero-condition" id="heroCondition">—</div>
+              <div class="hero-range">
+                <span>↑ <span id="heroMax">--°</span></span>
+                <span>↓ <span id="heroMin">--°</span></span>
+              </div>
+            </div>
+            <div class="hero-right">
+              <div class="weather-icon-large" id="heroIcon">⛅</div>
+              <div class="hero-stats">
+                <div class="hero-stat"><span class="hs-label">Vlažnost</span><span class="hs-val" id="heroHumidity">--%</span></div>
+                <div class="hero-stat"><span class="hs-label">Veter</span><span class="hs-val" id="heroWind">-- km/h</span></div>
+                <div class="hero-stat"><span class="hs-label">Tlak</span><span class="hs-val" id="heroPressure">-- hPa</span></div>
+                <div class="hero-stat"><span class="hs-label">Vidljivost</span><span class="hs-val" id="heroVisibility">-- km</span></div>
+                <div class="hero-stat"><span class="hs-label">UV Indeks</span><span class="hs-val" id="heroUV">--</span></div>
+                <div class="hero-stat"><span class="hs-label">Oblačnost</span><span class="hs-val" id="heroClouds">--%</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- METRICS GRID -->
+        <div class="metrics-grid">
+          <div class="metric-card" id="cardDewpoint">
+            <div class="mc-icon">💧</div>
+            <div class="mc-label">Rosišče</div>
+            <div class="mc-value" id="metricDewpoint">--°</div>
+            <div class="mc-sub" id="metricDewpointDesc">—</div>
+          </div>
+          <div class="metric-card" id="cardWind">
+            <div class="mc-icon">🌬️</div>
+            <div class="mc-label">Veter</div>
+            <div class="mc-value" id="metricWind">--</div>
+            <div class="mc-sub">Sunki: <span id="metricGusts">--</span></div>
+            <div class="wind-compass" id="windCompass">
+              <div class="compass-ring">
+                <span class="compass-n">S</span>
+                <span class="compass-e">V</span>
+                <span class="compass-s">J</span>
+                <span class="compass-w">Z</span>
+                <div class="compass-needle" id="compassNeedle" style="transform:rotate(0deg)"></div>
+              </div>
+              <div class="compass-dir" id="windDir">--</div>
+            </div>
+          </div>
+          <div class="metric-card" id="cardPrecip">
+            <div class="mc-icon">🌧️</div>
+            <div class="mc-label">Padavine</div>
+            <div class="mc-value" id="metricPrecip">-- mm</div>
+            <div class="mc-sub">Verjetnost: <span id="metricPrecipProb">--%</span></div>
+          </div>
+          <div class="metric-card">
+            <div class="mc-icon">☀️</div>
+            <div class="mc-label">Sončno sevanje</div>
+            <div class="mc-value" id="metricSolar">-- W/m²</div>
+            <div class="mc-sub" id="metricSolarDesc">—</div>
+          </div>
+          <div class="metric-card">
+            <div class="mc-icon">❄️</div>
+            <div class="mc-label">Mrzlinski indeks</div>
+            <div class="mc-value" id="metricWindchill">--°</div>
+            <div class="mc-sub" id="metricWindchillDesc">—</div>
+          </div>
+          <div class="metric-card">
+            <div class="mc-icon">🌡️</div>
+            <div class="mc-label">Toplotni indeks</div>
+            <div class="mc-value" id="metricHeatIndex">--°</div>
+            <div class="mc-sub" id="metricHeatIndexDesc">—</div>
+          </div>
+          <div class="metric-card">
+            <div class="mc-icon">🌅</div>
+            <div class="mc-label">Sončni vzhod</div>
+            <div class="mc-value" id="metricSunrise">--:--</div>
+            <div class="mc-sub">Zahod: <span id="metricSunset">--:--</span></div>
+          </div>
+          <div class="metric-card">
+            <div class="mc-icon">🌒</div>
+            <div class="mc-label">Luna</div>
+            <div class="mc-value" id="metricMoonphase">--</div>
+            <div class="mc-sub" id="metricMoonrise">—</div>
+          </div>
+        </div>
+
+        <!-- HOURLY MINI CHART -->
+        <div class="section-card">
+          <div class="section-header">
+            <h2>Urna napoved — danes</h2>
+            <div class="chart-toggle">
+              <button class="ct-btn active" onclick="setHourlyMetric('temperature')">Temp</button>
+              <button class="ct-btn" onclick="setHourlyMetric('precipitation')">Padavine</button>
+              <button class="ct-btn" onclick="setHourlyMetric('wind')">Veter</button>
+              <button class="ct-btn" onclick="setHourlyMetric('humidity')">Vlažnost</button>
+            </div>
+          </div>
+          <div class="hourly-scroll" id="hourlyScroll">
+            <canvas id="hourlyChart" height="120"></canvas>
+          </div>
+        </div>
+
+        <!-- 7-DAY FORECAST STRIP -->
+        <div class="section-card">
+          <div class="section-header"><h2>7-dnevna napoved</h2></div>
+          <div class="forecast-strip" id="forecastStrip"></div>
+        </div>
+
+        <!-- WIND & PRESSURE ROW -->
+        <div class="two-col-grid">
+          <div class="section-card">
+            <div class="section-header"><h2>Barometer — Tlak (7 dni)</h2></div>
+            <canvas id="pressureChart" height="140"></canvas>
+          </div>
+          <div class="section-card">
+            <div class="section-header"><h2>Vlažnost & Rosišče (24h)</h2></div>
+            <canvas id="humidityChart" height="140"></canvas>
+          </div>
+        </div>
+
+        <!-- MINI MAP PREVIEW -->
+        <div class="section-card">
+          <div class="section-header">
+            <h2>Vremenska Karta</h2>
+            <a href="#" class="link-btn" data-view="map">Odpri polno karto →</a>
+          </div>
+          <div id="miniMap" style="height:300px; border-radius:12px; overflow:hidden;"></div>
+        </div>
+      </div>
+
+      <!-- FORECAST VIEW -->
+      <div class="view" id="view-forecast">
+        <div class="view-header"><h1>14-dnevna Napoved</h1></div>
+        <div class="section-card">
+          <canvas id="forecast14Chart" height="160"></canvas>
+        </div>
+        <div class="forecast-table-wrap">
+          <table class="forecast-table" id="forecastTable">
+            <thead>
+              <tr>
+                <th>Dan</th><th>Ikona</th><th>Opis</th>
+                <th>Min</th><th>Max</th>
+                <th>Padavine</th><th>Verjetnost</th>
+                <th>Veter</th><th>UV</th>
+                <th>Sončni vzh.</th><th>Zahod</th>
+              </tr>
+            </thead>
+            <tbody id="forecastTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- HOURLY VIEW -->
+      <div class="view" id="view-hourly">
+        <div class="view-header"><h1>Urna Napoved — 48 ur</h1></div>
+        <div class="section-card">
+          <div class="section-header"><h2>Temperatura</h2></div>
+          <canvas id="hourly48TempChart" height="160"></canvas>
+        </div>
+        <div class="section-card">
+          <div class="section-header"><h2>Padavine & Verjetnost</h2></div>
+          <canvas id="hourly48PrecipChart" height="140"></canvas>
+        </div>
+        <div class="section-card">
+          <div class="section-header"><h2>Hitrost vetra</h2></div>
+          <canvas id="hourly48WindChart" height="140"></canvas>
+        </div>
+        <div class="section-card">
+          <div class="section-header"><h2>Vlažnost</h2></div>
+          <canvas id="hourly48HumidityChart" height="140"></canvas>
+        </div>
+        <div class="section-card">
+          <div class="section-header"><h2>Podrobna tabela</h2></div>
+          <div class="hourly-table-wrap">
+            <table class="forecast-table" id="hourlyTable">
+              <thead>
+                <tr><th>Ura</th><th>Ikona</th><th>Temp</th><th>Občutek</th><th>Padav.</th><th>Veter</th><th>Vlažnost</th><th>Tlak</th><th>Vidlj.</th></tr>
+              </thead>
+              <tbody id="hourlyTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- RADAR & SATELLITE VIEW -->
+      <div class="view" id="view-radar">
+        <div class="view-header"><h1>Radar & Satelitske Slike</h1></div>
+        <div class="radar-grid">
+          <div class="section-card radar-card">
+            <div class="section-header">
+              <h2>Padavinski Radar (RainViewer)</h2>
+              <div class="radar-controls">
+                <button class="radar-btn" id="radarPlayBtn" onclick="toggleRadarPlay()">▶ Predvajaj</button>
+                <input type="range" id="radarSlider" min="0" max="9" value="9" oninput="setRadarFrame(this.value)" />
+                <span id="radarTime">—</span>
+              </div>
+            </div>
+            <div id="radarMap" style="height:450px; border-radius:12px; overflow:hidden;"></div>
+          </div>
+          <div class="section-card">
+            <div class="section-header"><h2>Satelitske Slike — Evropa</h2></div>
+            <div class="satellite-tabs">
+              <button class="sat-tab active" onclick="setSatLayer('infrared')">Infrardeča</button>
+              <button class="sat-tab" onclick="setSatLayer('visible')">Vidna</button>
+              <button class="sat-tab" onclick="setSatLayer('wv')">Vodni Par</button>
+            </div>
+            <div class="satellite-embed">
+              <iframe id="satelliteFrame"
+                src="https://embed.windy.com/embed2.html?lat=46.5&lon=14.5&detailLat=46.07&detailLon=14.51&width=100%&height=400&zoom=5&level=surface&overlay=satellite&product=ecmwf&menu=&message=true&marker=&calendar=now&pressure=&type=map&location=coordinates&detail=&metricWind=km%2Fh&metricTemp=%C2%B0C&radarRange=-1"
+                frameborder="0" style="width:100%;height:400px;border-radius:12px;"
+                allowfullscreen></iframe>
+            </div>
+          </div>
+        </div>
+        <div class="section-card">
+          <div class="section-header"><h2>Strele — Lightning Map</h2></div>
+          <iframe src="https://www.lightningmaps.org/?lang=sl" frameborder="0"
+            style="width:100%;height:450px;border-radius:12px;"></iframe>
+        </div>
+      </div>
+
+      <!-- MAP VIEW -->
+      <div class="view" id="view-map">
+        <div class="view-header"><h1>Interaktivna Vremenska Karta</h1></div>
+        <div class="map-controls">
+          <div class="map-layer-group">
+            <span class="layer-label">Plast:</span>
+            <button class="map-layer-btn active" onclick="setMapLayer('temp')">Temperatura</button>
+            <button class="map-layer-btn" onclick="setMapLayer('precip')">Padavine</button>
+            <button class="map-layer-btn" onclick="setMapLayer('wind')">Veter</button>
+            <button class="map-layer-btn" onclick="setMapLayer('clouds')">Oblaki</button>
+            <button class="map-layer-btn" onclick="setMapLayer('pressure')">Tlak</button>
+            <button class="map-layer-btn" onclick="setMapLayer('snow')">Sneg</button>
+          </div>
+          <div class="map-opacity-control">
+            <label>Prosojnost: <span id="opacityVal">70%</span></label>
+            <input type="range" id="layerOpacity" min="10" max="100" value="70" oninput="updateLayerOpacity(this.value)" />
+          </div>
+        </div>
+        <div id="fullMap" style="height:600px;border-radius:12px;overflow:hidden;"></div>
+        <div class="map-legend" id="mapLegend"></div>
+
+        <!-- Windy embed full -->
+        <div class="section-card" style="margin-top:24px;">
+          <div class="section-header"><h2>Windy.com — Napredna Karta</h2></div>
+          <iframe id="windyEmbed"
+            src="https://embed.windy.com/embed2.html?lat=46.5&lon=14.5&detailLat=46.07&detailLon=14.51&width=100%&height=500&zoom=6&level=surface&overlay=wind&product=ecmwf&menu=&message=true&marker=&calendar=now&pressure=&type=map&location=coordinates&detail=&metricWind=km%2Fh&metricTemp=%C2%B0C&radarRange=-1"
+            frameborder="0" style="width:100%;height:500px;border-radius:12px;"
+            allowfullscreen></iframe>
+        </div>
+      </div>
+
+      <!-- CLIMATE VIEW -->
+      <div class="view" id="view-climate">
+        <div class="view-header"><h1>Podnebna Analiza</h1></div>
+        <div class="section-card">
+          <div class="section-header">
+            <h2>Povprečne mesečne temperature (podnebje)</h2>
+          </div>
+          <canvas id="climateMonthlyTempChart" height="160"></canvas>
+        </div>
+        <div class="two-col-grid">
+          <div class="section-card">
+            <div class="section-header"><h2>Povprečne padavine po mesecih</h2></div>
+            <canvas id="climateMonthlyPrecipChart" height="160"></canvas>
+          </div>
+          <div class="section-card">
+            <div class="section-header"><h2>Povprečna vlažnost po mesecih</h2></div>
+            <canvas id="climateMonthlyHumidityChart" height="160"></canvas>
+          </div>
+        </div>
+        <div class="section-card">
+          <div class="section-header"><h2>Podnebni povzetki po mesecih</h2></div>
+          <div class="climate-table-wrap">
+            <table class="forecast-table" id="climateTable">
+              <thead>
+                <tr><th>Mesec</th><th>Avg Temp</th><th>Min</th><th>Max</th><th>Padavine</th><th>Vlažnost</th><th>Sončne ure</th></tr>
+              </thead>
+              <tbody id="climateTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="section-card">
+          <div class="section-header"><h2>Koppen Podnebna Klasifikacija</h2></div>
+          <div class="climate-class" id="climateClassCard">
+            <div class="cc-icon">🌍</div>
+            <div class="cc-text">
+              <div class="cc-type" id="ccType">Nalaganje...</div>
+              <div class="cc-desc" id="ccDesc">—</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ALERTS VIEW -->
+      <div class="view" id="view-alerts">
+        <div class="view-header"><h1>Vremenska Opozorila</h1></div>
+        <div class="alerts-container" id="alertsContainer">
+          <div class="no-alerts">
+            <span>✅</span>
+            <p>Trenutno ni aktivnih opozoril za vašo lokacijo.</p>
+          </div>
+        </div>
+        <div class="section-card">
+          <div class="section-header"><h2>ARSO Opozorila (Slovenija)</h2></div>
+          <div class="arso-links">
+            <a href="https://meteo.arso.gov.si/met/sl/warning/" target="_blank" class="external-link-btn">
+              🌐 ARSO Opozorila →
+            </a>
+            <a href="https://www.meteoalarm.org/sl-SI/1/0/SI-Slovenija/" target="_blank" class="external-link-btn">
+              🚨 MeteoAlarm Evropa →
+            </a>
+            <a href="https://www.dwd.de/EN/weather/warnings/warnings_node.html" target="_blank" class="external-link-btn">
+              🇩🇪 DWD Opozorila →
+            </a>
+          </div>
+          <iframe src="https://www.meteoalarm.org/sl-SI/1/0/SI-Slovenija/" frameborder="0"
+            style="width:100%;height:400px;border-radius:12px;margin-top:16px;"></iframe>
+        </div>
+        <div class="section-card">
+          <div class="section-header"><h2>Nastavitvena opozorila</h2></div>
+          <div class="alert-settings" id="alertSettings">
+            <div class="alert-threshold">
+              <label>Opozori pri temperaturi pod:</label>
+              <input type="number" id="alertMinTemp" value="-5" /> °C
+            </div>
+            <div class="alert-threshold">
+              <label>Opozori pri temperaturi nad:</label>
+              <input type="number" id="alertMaxTemp" value="35" /> °C
+            </div>
+            <div class="alert-threshold">
+              <label>Opozori pri vetru nad:</label>
+              <input type="number" id="alertWind" value="50" /> km/h
+            </div>
+            <div class="alert-threshold">
+              <label>Opozori pri padavinah nad:</label>
+              <input type="number" id="alertPrecip" value="20" /> mm/h
+            </div>
+            <button class="primary-btn" onclick="saveAlertSettings()">Shrani Nastavitve</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ASTRONOMY VIEW -->
+      <div class="view" id="view-astronomy">
+        <div class="view-header"><h1>Astronomija & Sončni Cikli</h1></div>
+        <div class="astro-grid">
+          <div class="section-card astro-sun-card">
+            <div class="section-header"><h2>☀️ Sonce</h2></div>
+            <div class="sun-arc-container">
+              <canvas id="sunArcCanvas" width="340" height="200"></canvas>
+            </div>
+            <div class="astro-stats">
+              <div class="as-row"><span>Vzhod</span><span id="asSunrise">--:--</span></div>
+              <div class="as-row"><span>Zenit</span><span id="asSolarNoon">--:--</span></div>
+              <div class="as-row"><span>Zahod</span><span id="asSunset">--:--</span></div>
+              <div class="as-row"><span>Trajanje dneva</span><span id="asDayLength">--h --m</span></div>
+              <div class="as-row"><span>Astronomska zora</span><span id="asAstroTwilight">--:--</span></div>
+              <div class="as-row"><span>Zlatá ura</span><span id="asGoldenHour">--:--</span></div>
+            </div>
+          </div>
+          <div class="section-card astro-moon-card">
+            <div class="section-header"><h2>🌙 Luna</h2></div>
+            <div class="moon-display">
+              <div class="moon-visual" id="moonVisual">🌕</div>
+              <div class="moon-info">
+                <div class="moon-phase-name" id="moonPhaseName">—</div>
+                <div class="moon-illum" id="moonIllum">Osvetlitev: --%</div>
+              </div>
+            </div>
+            <div class="astro-stats">
+              <div class="as-row"><span>Vznik Lune</span><span id="asMoonrise">--:--</span></div>
+              <div class="as-row"><span>Zahod Lune</span><span id="asMoonset">--:--</span></div>
+              <div class="as-row"><span>Polna luna</span><span id="asNextFullMoon">—</span></div>
+              <div class="as-row"><span>Nova luna</span><span id="asNextNewMoon">—</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="section-card">
+          <div class="section-header"><h2>Dolžina dneva — letni pregled</h2></div>
+          <canvas id="daylightChart" height="160"></canvas>
+        </div>
+      </div>
+
+      <!-- AIR QUALITY VIEW -->
+      <div class="view" id="view-airquality">
+        <div class="view-header"><h1>Kakovost Zraka</h1></div>
+        <div class="aqi-hero">
+          <div class="aqi-gauge-wrap">
+            <canvas id="aqiGauge" width="240" height="140"></canvas>
+            <div class="aqi-score-label">
+              <div class="aqi-number" id="aqiNumber">--</div>
+              <div class="aqi-label-text" id="aqiLabel">—</div>
+            </div>
+          </div>
+          <div class="aqi-breakdown">
+            <div class="aqi-row"><span>PM2.5</span><div class="aqi-bar-wrap"><div class="aqi-bar" id="barPM25"></div></div><span id="valPM25">-- µg/m³</span></div>
+            <div class="aqi-row"><span>PM10</span><div class="aqi-bar-wrap"><div class="aqi-bar" id="barPM10"></div></div><span id="valPM10">-- µg/m³</span></div>
+            <div class="aqi-row"><span>NO₂</span><div class="aqi-bar-wrap"><div class="aqi-bar" id="barNO2"></div></div><span id="valNO2">-- µg/m³</span></div>
+            <div class="aqi-row"><span>O₃</span><div class="aqi-bar-wrap"><div class="aqi-bar" id="barO3"></div></div><span id="valO3">-- µg/m³</span></div>
+            <div class="aqi-row"><span>SO₂</span><div class="aqi-bar-wrap"><div class="aqi-bar" id="barSO2"></div></div><span id="valSO2">-- µg/m³</span></div>
+            <div class="aqi-row"><span>CO</span><div class="aqi-bar-wrap"><div class="aqi-bar" id="barCO"></div></div><span id="valCO">-- µg/m³</span></div>
+          </div>
+        </div>
+        <div class="section-card">
+          <div class="section-header"><h2>AQI — 24h trend</h2></div>
+          <canvas id="aqiChart" height="140"></canvas>
+        </div>
+        <div class="section-card">
+          <div class="section-header"><h2>Priporočila glede na kakovost zraka</h2></div>
+          <div class="aqi-recommendations" id="aqiRecommendations">
+            <div class="aqi-rec-item">⏳ Nalaganje podatkov...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- STATIONS VIEW -->
+      <div class="view" id="view-stations">
+        <div class="view-header"><h1>Vremenske Postaje</h1></div>
+        <div class="section-card">
+          <div class="section-header"><h2>ARSO Merilna Mesta (Slovenija)</h2></div>
+          <div class="stations-links">
+            <a href="https://meteo.arso.gov.si/met/sl/current/observation-all/" target="_blank" class="external-link-btn">📊 Vse postaje ARSO →</a>
+            <a href="https://meteo.arso.gov.si/uploads/probase/www/observ/surface/text/sl/observation_si_latest.html" target="_blank" class="external-link-btn">📋 Tabela meritev →</a>
+          </div>
+          <iframe src="https://meteo.arso.gov.si/uploads/probase/www/observ/surface/text/sl/observation_si_latest.html"
+            frameborder="0" style="width:100%;height:500px;border-radius:12px;margin-top:16px;background:white;"></iframe>
+        </div>
+        <div class="section-card">
+          <div class="section-header"><h2>Osebna Meteorološka Postaja — Vnos Meritev</h2></div>
+          <div class="manual-input-form">
+            <h3>Vnesi lastne meritve</h3>
+            <div class="form-grid">
+              <div class="form-group">
+                <label>Temperatura (°C)</label>
+                <input type="number" id="inpTemp" step="0.1" placeholder="npr. 22.5" />
+              </div>
+              <div class="form-group">
+                <label>Vlažnost (%)</label>
+                <input type="number" id="inpHumidity" min="0" max="100" placeholder="npr. 65" />
+              </div>
+              <div class="form-group">
+                <label>Tlak (hPa)</label>
+                <input type="number" id="inpPressure" step="0.1" placeholder="npr. 1013.2" />
+              </div>
+              <div class="form-group">
+                <label>Hitrost vetra (km/h)</label>
+                <input type="number" id="inpWind" step="0.1" placeholder="npr. 12.5" />
+              </div>
+              <div class="form-group">
+                <label>Smer vetra (°)</label>
+                <input type="number" id="inpWindDir" min="0" max="360" placeholder="npr. 180" />
+              </div>
+              <div class="form-group">
+                <label>Padavine (mm)</label>
+                <input type="number" id="inpPrecip" step="0.1" placeholder="npr. 2.3" />
+              </div>
+              <div class="form-group">
+                <label>Rosišče (°C)</label>
+                <input type="number" id="inpDewpoint" step="0.1" placeholder="npr. 15.2" />
+              </div>
+              <div class="form-group">
+                <label>Vidljivost (km)</label>
+                <input type="number" id="inpVisibility" step="0.1" placeholder="npr. 20" />
+              </div>
+              <div class="form-group">
+                <label>UV Indeks</label>
+                <input type="number" id="inpUV" min="0" max="20" step="0.1" placeholder="npr. 5.2" />
+              </div>
+              <div class="form-group">
+                <label>Sončno sevanje (W/m²)</label>
+                <input type="number" id="inpSolar" placeholder="npr. 650" />
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Opombe</label>
+              <textarea id="inpNotes" placeholder="Opis vremena, posebne opazke..."></textarea>
+            </div>
+            <div class="form-actions">
+              <button class="primary-btn" onclick="saveManualReading()">💾 Shrani Meritev</button>
+              <button class="secondary-btn" onclick="exportReadings()">📥 Izvozi CSV</button>
+              <button class="secondary-btn" onclick="clearReadings()">🗑️ Izbriši vse</button>
+            </div>
+          </div>
+        </div>
+        <div class="section-card" id="manualReadingsCard" style="display:none;">
+          <div class="section-header"><h2>Shranjene meritve</h2></div>
+          <div class="manual-readings-list" id="manualReadingsList"></div>
+          <div class="section-card">
+            <div class="section-header"><h2>Graf lastnih meritev</h2></div>
+            <canvas id="manualTempChart" height="140"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- COMPARE VIEW -->
+      <div class="view" id="view-compare">
+        <div class="view-header"><h1>Primerjava Mest</h1></div>
+        <div class="compare-search-row">
+          <div class="compare-city-input">
+            <input type="text" id="compareCity1" placeholder="Mesto 1 (npr. Ljubljana)" />
+            <button class="secondary-btn" onclick="addCompareCity(1)">Dodaj</button>
+          </div>
+          <div class="compare-city-input">
+            <input type="text" id="compareCity2" placeholder="Mesto 2 (npr. Maribor)" />
+            <button class="secondary-btn" onclick="addCompareCity(2)">Dodaj</button>
+          </div>
+          <div class="compare-city-input">
+            <input type="text" id="compareCity3" placeholder="Mesto 3 (npr. Koper)" />
+            <button class="secondary-btn" onclick="addCompareCity(3)">Dodaj</button>
+          </div>
+        </div>
+        <div class="compare-results" id="compareResults"></div>
+        <div class="section-card" id="compareChartCard" style="display:none;">
+          <div class="section-header"><h2>Primerjava temperatur — 7 dni</h2></div>
+          <canvas id="compareChart" height="200"></canvas>
+        </div>
+      </div>
+
+      <!-- SETTINGS VIEW -->
+      <div class="view" id="view-settings">
+        <div class="view-header"><h1>Nastavitve</h1></div>
+        <div class="settings-grid">
+          <div class="section-card">
+            <div class="section-header"><h2>Splošno</h2></div>
+            <div class="settings-form">
+              <div class="setting-row">
+                <label>Privzeta lokacija</label>
+                <input type="text" id="settingDefaultLocation" placeholder="npr. Ljubljana, SI" />
+                <button class="secondary-btn" onclick="setDefaultLocation()">Shrani</button>
+              </div>
+              <div class="setting-row">
+                <label>Enota temperature</label>
+                <select id="settingTempUnit" onchange="setUnit(this.value)">
+                  <option value="C">Celsius (°C)</option>
+                  <option value="F">Fahrenheit (°F)</option>
+                  <option value="K">Kelvin (K)</option>
+                </select>
+              </div>
+              <div class="setting-row">
+                <label>Enota hitrosti vetra</label>
+                <select id="settingWindUnit" onchange="setWindUnit(this.value)">
+                  <option value="kmh">km/h</option>
+                  <option value="ms">m/s</option>
+                  <option value="mph">mph</option>
+                  <option value="knots">vozli</option>
+                  <option value="bf">Beaufort</option>
+                </select>
+              </div>
+              <div class="setting-row">
+                <label>Enota tlaka</label>
+                <select id="settingPressUnit">
+                  <option value="hpa">hPa</option>
+                  <option value="inhg">inHg</option>
+                  <option value="mmhg">mmHg</option>
+                  <option value="atm">atm</option>
+                </select>
+              </div>
+              <div class="setting-row">
+                <label>Enota padavin</label>
+                <select id="settingPrecipUnit">
+                  <option value="mm">mm</option>
+                  <option value="inch">inch</option>
+                </select>
+              </div>
+              <div class="setting-row">
+                <label>Format časa</label>
+                <select id="settingTimeFormat">
+                  <option value="24h">24-urni</option>
+                  <option value="12h">12-urni (AM/PM)</option>
+                </select>
+              </div>
+              <div class="setting-row">
+                <label>Jezik</label>
+                <select id="settingLang">
+                  <option value="sl">Slovenščina</option>
+                  <option value="en">English</option>
+                  <option value="de">Deutsch</option>
+                  <option value="hr">Hrvatski</option>
+                </select>
+              </div>
+              <div class="setting-row">
+                <label>Tema</label>
+                <select id="settingTheme" onchange="setTheme(this.value)">
+                  <option value="dark">Temna</option>
+                  <option value="light">Svetla</option>
+                  <option value="auto">Samodejno</option>
+                </select>
+              </div>
+              <div class="setting-row">
+                <label>Samodejno osveži vsakih</label>
+                <select id="settingRefreshInterval">
+                  <option value="0">Izklop</option>
+                  <option value="5">5 minut</option>
+                  <option value="15" selected>15 minut</option>
+                  <option value="30">30 minut</option>
+                  <option value="60">1 ura</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <div class="section-card">
+            <div class="section-header"><h2>API Ključi (neobvezno)</h2></div>
+            <p class="settings-note">Aplikacija deluje brez API ključev z Open-Meteo (brezplačno). Za dodatne funkcije dodajte ključe:</p>
+            <div class="settings-form">
+              <div class="setting-row">
+                <label>OpenWeatherMap API Key</label>
+                <input type="password" id="settingOWMKey" placeholder="Pridobi na openweathermap.org" />
+                <button class="secondary-btn" onclick="saveApiKey('owm')">Shrani</button>
+              </div>
+              <div class="setting-row">
+                <label>Tomorrow.io API Key</label>
+                <input type="password" id="settingTomorrowKey" placeholder="Pridobi na tomorrow.io" />
+                <button class="secondary-btn" onclick="saveApiKey('tomorrow')">Shrani</button>
+              </div>
+              <div class="setting-row">
+                <label>AirVisual API Key</label>
+                <input type="password" id="settingAirVisualKey" placeholder="Pridobi na iqair.com" />
+                <button class="secondary-btn" onclick="saveApiKey('airvisual')">Shrani</button>
+              </div>
+            </div>
+          </div>
+          <div class="section-card">
+            <div class="section-header"><h2>Shranjene Lokacije</h2></div>
+            <div class="saved-locations-list" id="savedLocationsList"></div>
+            <div class="setting-row" style="margin-top:12px;">
+              <input type="text" id="newSavedLocation" placeholder="Dodaj lokacijo..." />
+              <button class="secondary-btn" onclick="addSavedLocation()">Dodaj</button>
+            </div>
+          </div>
+          <div class="section-card">
+            <div class="section-header"><h2>Viri Podatkov</h2></div>
+            <div class="data-sources">
+              <div class="ds-item">
+                <span class="ds-dot active"></span>
+                <div>
+                  <strong>Open-Meteo</strong>
+                  <p>Brezplačen, odprtokoden. Temperatura, padavine, veter, UV, tlak, vlažnost — do 16 dni naprej.</p>
+                  <a href="https://open-meteo.com" target="_blank">open-meteo.com</a>
+                </div>
+              </div>
+              <div class="ds-item">
+                <span class="ds-dot active"></span>
+                <div>
+                  <strong>Nominatim (OpenStreetMap)</strong>
+                  <p>Geocoding — iskanje lokacij brezplačno.</p>
+                  <a href="https://nominatim.openstreetmap.org" target="_blank">nominatim.org</a>
+                </div>
+              </div>
+              <div class="ds-item">
+                <span class="ds-dot active"></span>
+                <div>
+                  <strong>RainViewer API</strong>
+                  <p>Padavinski radar z zgodovino, brezplačno.</p>
+                  <a href="https://www.rainviewer.com/api.html" target="_blank">rainviewer.com</a>
+                </div>
+              </div>
+              <div class="ds-item">
+                <span class="ds-dot active"></span>
+                <div>
+                  <strong>OpenWeatherMap (brez ključa)</strong>
+                  <p>Tile sloji za karte — temperatura, padavine, oblaki.</p>
+                  <a href="https://openweathermap.org" target="_blank">openweathermap.org</a>
+                </div>
+              </div>
+              <div class="ds-item">
+                <span class="ds-dot active"></span>
+                <div>
+                  <strong>Windy.com Embed</strong>
+                  <p>Napredna vremenska karta z animacijami vetra, satelitom.</p>
+                  <a href="https://windy.com" target="_blank">windy.com</a>
+                </div>
+              </div>
+              <div class="ds-item">
+                <span class="ds-dot active"></span>
+                <div>
+                  <strong>ARSO (Agencija RS za okolje)</strong>
+                  <p>Uradni podatki za Slovenijo.</p>
+                  <a href="https://meteo.arso.gov.si" target="_blank">meteo.arso.gov.si</a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- LOADING OVERLAY -->
+  <div class="loading-overlay" id="loadingOverlay">
+    <div class="loading-spinner">
+      <div class="spinner-ring"></div>
+      <div class="loading-text">Nalaganje Meteosfera...</div>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATIONS -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="js/utils.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/charts.js"></script>
+  <script src="js/maps.js"></script>
+  <script src="js/astronomy.js"></script>
+  <script src="js/airquality.js"></script>
+  <script src="js/stations.js"></script>
+  <script src="js/compare.js"></script>
+  <script src="js/climate.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
