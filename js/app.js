@@ -174,11 +174,40 @@ const App = {
     }
   },
 
+  // ---- MAIN FORECAST DATE HELPERS ----
+  _getTodayDateString() {
+    const now = new Date();
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Europe/Ljubljana',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).formatToParts(now);
+
+    const year = parts.find(p => p.type === 'year')?.value;
+    const month = parts.find(p => p.type === 'month')?.value;
+    const day = parts.find(p => p.type === 'day')?.value;
+
+    return `${year}-${month}-${day}`;
+  },
+
+  _getDailyStartIndex(data) {
+    if (!data?.daily?.time?.length) return 0;
+
+    const today = this._getTodayDateString();
+    const index = data.daily.time.findIndex(date => date === today);
+
+    return index >= 0 ? index : 0;
+  },
+
   // ---- DASHBOARD RENDER ----
   _renderDashboard(data) {
     const c = data.current;
     const d = data.daily;
     const now = new Date();
+
+    // Find the actual current day in the daily forecast
+    const todayIndex = this._getDailyStartIndex(data);
 
     // Hero
     document.getElementById('heroLocation').textContent = `${API.currentCity}${API.currentCountry ? ', ' + API.currentCountry : ''}`;
@@ -187,8 +216,8 @@ const App = {
     document.getElementById('heroFeels').textContent = Convert.tempStr(c.apparent_temperature);
     document.getElementById('heroCondition').textContent = WMO.label(c.weather_code);
     document.getElementById('heroIcon').textContent = WMO.icon(c.weather_code);
-    document.getElementById('heroMax').textContent = Convert.tempStr(d.temperature_2m_max[0]);
-    document.getElementById('heroMin').textContent = Convert.tempStr(d.temperature_2m_min[0]);
+    document.getElementById('heroMax').textContent = Convert.tempStr(d.temperature_2m_max[todayIndex]);
+    document.getElementById('heroMin').textContent = Convert.tempStr(d.temperature_2m_min[todayIndex]);
     document.getElementById('heroHumidity').textContent = `${c.relative_humidity_2m}%`;
     document.getElementById('heroWind').textContent = Convert.windStr(c.wind_speed_10m);
     document.getElementById('heroPressure').textContent = Convert.pressureStr(c.pressure_msl);
@@ -247,13 +276,18 @@ const App = {
   _renderForecastStrip(data) {
     const strip = document.getElementById('forecastStrip');
     if (!strip) return;
-    const days = data.daily.time.slice(0, 7);
+
+    const startIndex = this._getDailyStartIndex(data);
+    const days = data.daily.time.slice(startIndex, startIndex + 7);
+
     strip.innerHTML = days.map((t, i) => {
+      const dataIndex = startIndex + i;
       const dayName = i === 0 ? 'Danes' : i === 1 ? 'Jutri' : TimeUtil.formatDate(t, true);
-      const icon = WMO.icon(data.daily.weather_code[i]);
-      const max = Convert.tempStr(data.daily.temperature_2m_max[i]);
-      const min = Convert.tempStr(data.daily.temperature_2m_min[i]);
-      const precip = data.daily.precipitation_sum[i];
+      const icon = WMO.icon(data.daily.weather_code[dataIndex]);
+      const max = Convert.tempStr(data.daily.temperature_2m_max[dataIndex]);
+      const min = Convert.tempStr(data.daily.temperature_2m_min[dataIndex]);
+      const precip = data.daily.precipitation_sum[dataIndex];
+
       return `
         <div class="forecast-day ${i === 0 ? 'active' : ''}">
           <div class="fd-day">${dayName}</div>
@@ -273,20 +307,24 @@ const App = {
 
     const tbody = document.getElementById('forecastTableBody');
     if (!tbody) return;
-    const days = data.daily.time.slice(0, 14);
+
+    const startIndex = this._getDailyStartIndex(data);
+    const days = data.daily.time.slice(startIndex, startIndex + 14);
+
     tbody.innerHTML = days.map((t, i) => {
+      const dataIndex = startIndex + i;
       const isToday = i === 0;
       const dayStr = isToday ? 'Danes' : i === 1 ? 'Jutri' : TimeUtil.formatDate(t);
-      const icon = WMO.icon(data.daily.weather_code[i]);
-      const cond = WMO.label(data.daily.weather_code[i]);
-      const max = Convert.tempStr(data.daily.temperature_2m_max[i]);
-      const min = Convert.tempStr(data.daily.temperature_2m_min[i]);
-      const precip = Convert.precipStr(data.daily.precipitation_sum[i]);
-      const precipProb = data.daily.precipitation_probability_max[i];
-      const wind = Convert.windStr(data.daily.wind_speed_10m_max[i]);
-      const uv = fmtNum(data.daily.uv_index_max[i], 0);
-      const sr = new Date(data.daily.sunrise[i]).toLocaleTimeString('sl', { hour: '2-digit', minute: '2-digit' });
-      const ss = new Date(data.daily.sunset[i]).toLocaleTimeString('sl', { hour: '2-digit', minute: '2-digit' });
+      const icon = WMO.icon(data.daily.weather_code[dataIndex]);
+      const cond = WMO.label(data.daily.weather_code[dataIndex]);
+      const max = Convert.tempStr(data.daily.temperature_2m_max[dataIndex]);
+      const min = Convert.tempStr(data.daily.temperature_2m_min[dataIndex]);
+      const precip = Convert.precipStr(data.daily.precipitation_sum[dataIndex]);
+      const precipProb = data.daily.precipitation_probability_max[dataIndex];
+      const wind = Convert.windStr(data.daily.wind_speed_10m_max[dataIndex]);
+      const uv = fmtNum(data.daily.uv_index_max[dataIndex], 0);
+      const sr = new Date(data.daily.sunrise[dataIndex]).toLocaleTimeString('sl', { hour: '2-digit', minute: '2-digit' });
+      const ss = new Date(data.daily.sunset[dataIndex]).toLocaleTimeString('sl', { hour: '2-digit', minute: '2-digit' });
 
       return `
         <tr${isToday ? ' style="background:rgba(79,195,247,0.04)"' : ''}>
@@ -334,7 +372,7 @@ const App = {
       const isNow = i === 0;
 
       return `
-        <tr${isNow ? ' style="background:rgba(79,195,247,0.04)"' : ''}>
+        <tr${isNow ? ' style="background:rgba(79,195,247,0.04)' : ''}>
           <td style="font-weight:${isNow ? '700' : '400'};color:${isNow ? 'var(--accent)' : 'var(--text-secondary)'}">${hour}${isNow ? ' ← zdaj' : ''}</td>
           <td style="font-size:18px">${icon}</td>
           <td style="font-family:var(--font-data);font-weight:600;color:var(--text-primary)">${temp}</td>
